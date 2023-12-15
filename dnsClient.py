@@ -94,13 +94,13 @@ def dns_query(type, name, server):
         raise ValueError('Invalid type')
     
 
-    qclass = ??     # Lookup the Resource Record class being requested
+    qclass = 1     # Lookup the Resource Record class being requested
 
         # This is the query we are asking the DNS Server
     question = qname_encoded + struct.pack('!HH', qtype, qclass)
 
     # Send the query to the server, remember we must always include our header alongside the question!
-    message = ???? + ????
+    message = header + question
     sent = sock.sendto(message, server_address)
 
     # Receive the response from the server
@@ -110,15 +110,15 @@ def dns_query(type, name, server):
         # It is a good idea to choose a buffer size that is large enough to accommodate the largest expected DNS response, but not so large that it wastes memory.
     
     # Parse the response header
-    response_header = data[:?????] # What is the size of the DNS response header in bytes? 
+    response_header = data[:12] # What is the size of the DNS response header in bytes? 
     ID, FLAGS, QDCOUNT, ANCOUNT, NSCOUNT, ARCOUNT = struct.unpack('!HHHHHH', response_header) # We are unpacking the binary data of the response header into individual values representing the fields of the DNS header.
     
     # Parse the response question section (same as query)
-    response_question = data[??:??+len(????)] # The data variable starts immediately after the header section, so what is it's index? Note the two '??' '??' will be the same value as we start at a specific index and then go for the entire length of the binary data received. 
+    response_question = data[12:12+len(question)] # The data variable starts immediately after the header section, so what is it's index? Note the two '??' '??' will be the same value as we start at a specific index and then go for the entire length of the binary data received. 
     assert response_question == question
 
     # Parse the response answer section
-    response_answer = data[??+len(question):] # We would be looking at the same index position as before (after the header)
+    response_answer = data[12+len(question):] # We would be looking at the same index position as before (after the header)
     offset = 0
     for _ in range(ANCOUNT):
         # Parse the name
@@ -142,20 +142,20 @@ def dns_query(type, name, server):
         name = '.'.join(name_parts)
 
         # Parse the type, class, TTL, and RDLENGTH
-        type, cls, ttl, rdlength = struct.unpack('!HHIH', response_answer[offset:offset+????]) # What is the offset value in bytes? Remember 'H' represent 2 bytes, and 'I' represents one byte, we declared '!HHIH'. 
+        type, cls, ttl, rdlength = struct.unpack('!HHIH', response_answer[offset:offset+10]) # What is the offset value in bytes? Remember 'H' represent 2 bytes, and 'I' represents one byte, we declared '!HHIH'. 
         
-        offset += ???? # Same value as just calculated
+        offset += 10 # Same value as just calculated
 
         # Parse the RDATA
         rdata = response_answer[offset:offset+rdlength]
         offset += rdlength
 
-        if type == ?????: # Lookup Type value
+        if type == 1: # Lookup Type value
             # A record (IPv4 address)
             ipv4 = socket.inet_ntop(socket.AF_INET, rdata)
             print(f'{name} has IPv4 address {ipv4}')\
             return ipv4
-        elif type == ?????: # Lookup Type value
+        elif type == 28: # Lookup Type value
             # AAAA record (IPv6 address)
             ipv6 = socket.inet_ntop(socket.AF_INET6, rdata)
             print(f'{name} has IPv6 address {ipv6}')
